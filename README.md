@@ -7,7 +7,7 @@ A simple migration system for [Meteor](http://meteor.com) supporting up/downward
 Meteor Migrations can be installed with [Meteorite](https://github.com/oortcloud/meteorite/). From inside a Meteorite-managed app:
 
 ``` sh
-$ mrt add percolatestudio-migrations
+$ mrt add percolatestudio:migrations
 ```
 
 ## API
@@ -113,7 +113,7 @@ $ ./packages/percolatestudio-migrations/migrate.sh latest --settings ./setting.j
 Write some code. Write some tests. To run the tests, do:
 
 ``` sh
-$ mrt test-packages percolatestudio-migrations
+$ mrt test-packages percolatestudio:migrations
 ```
 
 ## License 

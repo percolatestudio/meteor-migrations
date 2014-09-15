@@ -79,6 +79,14 @@ Migrations.migrateTo('3,rerun');
 
 ### Command line use
 
+**NOTE**: Command line use isn't available at the moment! A new approach is needed for meteor 0.9+ as the packages aren't
+copied / linked verbatim to the packages/ dir anymore.
+
+You could probably make this work if you'd clone the repository into the packages dir and then add the package to meteor instead of using
+the meteor servers for installing.
+
+*This is the way it worked before*:
+
 You can also run migrations from the command line using the included shell script. This will 
 
 1. Launch your Meteor app

@@ -96,7 +96,7 @@ Tinytest.add('Tests migrating down to version 0', function(test) {
   Migrations._reset();
 
   test.equal(Migrations.getVersion(), 0);
-  
+
   Migrations.add({
     up: function () {run.push('u1');},
     down: function () {run.push('d1');},
@@ -164,3 +164,16 @@ Tinytest.add('Checks that rerun works correctly', function(test) {
   test.equal(run, ['u1', 'u1']);
   test.equal(Migrations.getVersion(), 1);
 });
+
+Tinytest.add('Checks that it fails gracefully if a current migration is missing', function(test) {
+  Migrations._reset();
+
+  // set the "current" version to a non-existent record, 999
+  Migrations._setControl({version: 999, locked: false});
+  test.equal(Migrations.getVersion(), 999);
+
+  // shouldnt do anything (no errors)
+  Migrations.migrateTo('latest');
+  test.equal(Migrations.getVersion(), 999);
+});
+

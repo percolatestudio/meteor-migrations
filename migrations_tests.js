@@ -59,6 +59,33 @@ Tinytest.add('Migrates up several times.', function(test) {
   test.equal(Migrations.getVersion(), 4);
 });
 
+Tinytest.add('Migrates up several times with multiple Migrations of same version.', function(test) {
+  var run = []; //keeps track of migrations in here
+  Migrations._reset();
+
+  // first one
+  Migrations.add({up: function () {run.push('u1-2');}, version: 1});
+  Migrations.add({up: function () {run.push('u1-1');}, version: 1});
+
+  // migrates once
+  Migrations.migrateTo('latest');
+  test.equal(run, ['u1-2','u1-1']);
+  test.equal(Migrations.getVersion(), 1);
+
+  // add two more, out of order
+  Migrations.add({up: function () {run.push('u4-1');}, version: 4});
+  Migrations.add({up: function () {run.push('u4-2');}, version: 4});
+
+  Migrations.add({up: function () {run.push('u3-2');}, version: 3});
+  Migrations.add({up: function () {run.push('u3-1');}, version: 3});
+
+  // should run the next two nicely in order
+  Migrations.migrateTo('latest');
+  test.equal(run, ['u1-2', 'u1-1', 'u3-2', 'u3-1', 'u4-1', 'u4-2']);
+
+  test.equal(Migrations.getVersion(), 4);
+});
+
 Tinytest.add('Tests migrating down', function(test) {
   var run = []; //keeps track of migrations in here
   Migrations._reset();
@@ -88,6 +115,44 @@ Tinytest.add('Tests migrating down', function(test) {
     Migrations.migrateTo('1');
   }, /Cannot migrate/);
   test.equal(run, ['u1', 'u2', 'u3', 'd3']);
+  test.equal(Migrations.getVersion(), 2);
+});
+
+Tinytest.add('Tests migrating down with multiple Migrations of same version.', function(test) {
+  var run = []; //keeps track of migrations in here
+  Migrations._reset();
+
+  // add the migrations
+  Migrations.add({up: function () {run.push('u1');}, version: 1});
+  Migrations.add({up: function () {run.push('u2');}, version: 2});
+  Migrations.add({
+    up: function () {run.push('u3-1');},
+    down: function () {run.push('d3-1');},
+    version: 3,
+    name: 'Down Migration - 1' //give it a name, just for shits
+  });
+  Migrations.add({
+    up: function () {run.push('u3-2');},
+    down: function () {run.push('d3-2');},
+    version: 3,
+    name: 'Down Migration - 2' //give it a name, just for shits
+  });
+
+  // migrates up
+  Migrations.migrateTo('latest');
+  test.equal(run, ['u1', 'u2', 'u3-1', 'u3-2']);
+  test.equal(Migrations.getVersion(), 3);
+
+  // migrates down
+  Migrations.migrateTo('2');
+  test.equal(run, ['u1', 'u2', 'u3-1', 'u3-2', 'd3-2', 'd3-1']);
+  test.equal(Migrations.getVersion(), 2);
+
+  // should throw as migration u2 has no down method and remain at the save ver
+  test.throws(function() {
+    Migrations.migrateTo('1');
+  }, /Cannot migrate/);
+  test.equal(run, ['u1', 'u2', 'u3-1', 'u3-2', 'd3-2', 'd3-1']);
   test.equal(Migrations.getVersion(), 2);
 });
 

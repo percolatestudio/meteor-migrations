@@ -180,8 +180,16 @@ Migrations._migrateTo = function(version, rerun) {
     return;
   }
 
-  var startIdx = this._findIndexByVersion(currentVersion);
-  var endIdx = this._findIndexByVersion(version);
+  var startIdx = this._findMigrationsByVersion(currentVersion);
+  var endIdx = this._findMigrationsByVersion(version);
+
+  if(currentVersion < version){
+    startIdx = startIdx[startIdx.length-1];
+    endIdx = endIdx[endIdx.length-1];
+  }else{
+    startIdx = startIdx[startIdx.length-1];
+    endIdx = endIdx[0];
+  }
 
   // log.info('startIdx:' + startIdx + ' endIdx:' + endIdx);
   log.info('Migrating from version ' + this._list[startIdx].version
@@ -257,14 +265,18 @@ Migrations._setControl = function(control) {
   return control;
 }
 
-// returns the migration index in _list or throws if not found
-Migrations._findIndexByVersion = function(version) {
+// returns the migrations indexs in _list or throws if not found
+Migrations._findMigrationsByVersion = function(version) {
+  var migrationIndex = [];
   for (var i = 0;i < this._list.length;i++) {
     if (this._list[i].version === version)
-      return i;
+      migrationIndex.push(i);
   }
 
-  throw new Meteor.Error('Can\'t find migration version ' + version);
+  if(migrationIndex.length === 0)
+    throw new Meteor.Error('Can\'t find migration version ' + version);
+
+  return migrationIndex.sort();
 }
 
 //reset (mainly intended for tests)

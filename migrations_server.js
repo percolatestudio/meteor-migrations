@@ -206,7 +206,16 @@ Migrations._migrateTo = function(version, rerun) {
     log.info('Running ' + direction + '() on version '
       + migration.version + maybeName());
 
-    migration[direction](migration);
+    try {
+      migration[direction](migration);
+    } catch(e) {
+      // Catch exception and save in the control record
+      self._collection.update(
+        {_id: 'control', locked: true}, {$set: {exception: _.pick(e, Object.getOwnPropertyNames(e))}}
+      );
+      // Throw the exception again
+      throw e;
+    }
   }
 
   // Returns true if lock was acquired.
@@ -254,7 +263,7 @@ Migrations._setControl = function(control) {
   check(control.locked, Boolean);
 
   this._collection.update({_id: 'control'},
-    {$set: {version: control.version, locked: control.locked}}, {upsert: true});
+    {$set: {version: control.version, locked: control.locked}, $unset: {exception: 1}}, {upsert: true});
 
   return control;
 }

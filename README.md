@@ -60,8 +60,41 @@ Meteor.startup(function() {
   Migrations.migrateTo('latest');
 });
 ```
+### Threading and Callbacks
+The following is example code to wait for asynchronous code to complete prior to going on to next migration
 
+``` javascript
+function csvJsonMongoAsync (filePath, collection,cb) {
+      const csvFilePath = path.resolve(process.cwd() + filePath);
+         csv()
+            .fromFile(csvFilePath)
+            .on('json',   Meteor.bindEnvironment((jsonObj, cb) => {
+                //do something with jsonObj
+            }))
+            .on('done', ()=>
+                {
+                    cb();
+                }
+            )
+    };
+doCsvJsonMongoAsync = Meteor.wrapAsync(csvJsonMongoAsync)
+Migrations.add({
+  version: 3,
+  name: 'parse csv asysnc',
+  up: function() {
+    doCsvJsonMongoAsync(filePath, collection);
+    }
+  down: function() {//code to migrate down to version 1}
+});
+
+```
 *Note: Migrations should be run from `Meteor.startup` to allow for log output configuration.*
+*Alternative note: You may want to to call migration after startup in case your host (such as Heroku) limits the amount of time given for startup
+''' javascript
+Meteor.startup(function() {
+  setTimetout("Migrations.migrateTo('latest')",0);
+});
+'''
 
 By specifying a version, you can migrate directly to that version (if possible). The migrations system will automatically determine which direction to migrate in.
 

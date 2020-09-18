@@ -91,6 +91,23 @@ To see what version the database is at, call:
 Migrations.getVersion();
 ```
 
+**NOTE**: Migrations runs asynchronously using Promise. You can execute your code after finishing all migrations by running:
+
+``` javascript
+Migrations.add({
+  version: 1,
+  name: 'Adds pants to some people in the db.',
+  up: function() { 
+        return new Promise(resolve => {
+            //code to migrate up to version 1
+            resolve();
+        });
+    }
+});
+
+Migrations.migrateTo('1').then(() => {//code executed when migration is done});
+```
+
 ### Configuration
 
 You can configure Migrations with the `config` method. Defaults are:

@@ -138,14 +138,19 @@ Migrations.migrateTo = function(command) {
     var subcommand = command.split(',')[1]; //.trim();
   }
 
+  var versionArg, rerunArg;
   if (version === 'latest') {
-    this._migrateTo(_.last(this._list).version);
+    versionArg = _.last(this._list).version;
+    rerunArg = false;
   } else {
-    this._migrateTo(parseInt(version), subcommand === 'rerun');
+    versionArg = parseInt(version);
+    rerunArg = subcommand === 'rerun';
   }
-
-  // remember to run meteor with --once otherwise it will restart
-  if (subcommand === 'exit') process.exit(0);
+  return this._migrateTo(versionArg, rerunArg)
+      .then(() => {
+        // remember to run meteor with --once otherwise it will restart
+        if (subcommand === 'exit') process.exit(0);
+      });
 };
 
 // just returns the current version
@@ -154,22 +159,23 @@ Migrations.getVersion = function() {
 };
 
 // migrates to the specific version passed in
-Migrations._migrateTo = function(version, rerun) {
+Migrations._migrateTo = async function (version, rerun) {
   var self = this;
   var control = this._getControl(); // Side effect: upserts control document.
   var currentVersion = control.version;
 
   if (lock() === false) {
     log.info('Not migrating, control is locked.');
-    return;
+    return Promise.resolve();
   }
 
   if (rerun) {
     log.info('Rerunning version ' + version);
-    migrate('up', this._findIndexByVersion(version));
-    log.info('Finished migrating.');
-    unlock();
-    return;
+    return migrate('up', this._findIndexByVersion(version))
+        .then(() => {
+          log.info('Finished rerunning migrating.');
+          unlock();
+        });
   }
 
   if (currentVersion === version) {
@@ -177,7 +183,7 @@ Migrations._migrateTo = function(version, rerun) {
       log.info('Not migrating, already at version ' + version);
     }
     unlock();
-    return;
+    return Promise.resolve();
   }
 
   var startIdx = this._findIndexByVersion(currentVersion);
@@ -214,7 +220,7 @@ Migrations._migrateTo = function(version, rerun) {
         maybeName(),
     );
 
-    migration[direction](migration);
+    return Promise.resolve(migration[direction](migration));
   }
 
   // Returns true if lock was acquired.
@@ -237,18 +243,19 @@ Migrations._migrateTo = function(version, rerun) {
 
   if (currentVersion < version) {
     for (var i = startIdx; i < endIdx; i++) {
-      migrate('up', i + 1);
+      await migrate('up', i + 1);
       currentVersion = self._list[i + 1].version;
     }
   } else {
     for (var i = startIdx; i > endIdx; i--) {
-      migrate('down', i);
+      await migrate('down', i);
       currentVersion = self._list[i - 1].version;
     }
   }
 
   unlock();
   log.info('Finished migrating.');
+  return Promise.resolve();
 };
 
 // gets the current control record, optionally creating it if non-existant

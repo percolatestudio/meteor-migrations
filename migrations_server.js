@@ -225,12 +225,12 @@ Migrations._migrateTo = function(version, rerun) {
   }
 
   // Returns true if lock was acquired.
-  function lock() {
+  async function lock() {
     // This is atomic. The selector ensures only one caller at a time will see
     // the unlocked control, and locking occurs in the same update's modifier.
     // All other simultaneous callers will get false back from the update.
     return (
-      self._collection.update(
+      await self._collection.updateAsync(
         { _id: 'control', locked: false },
         { $set: { locked: true, lockedAt: new Date() } },
       ) === 1
@@ -265,19 +265,19 @@ Migrations._migrateTo = function(version, rerun) {
 };
 
 // gets the current control record, optionally creating it if non-existent
-Migrations._getControl = function() {
-  const control = this._collection.findOne({ _id: 'control' });
+Migrations._getControl = async function() {
+  const control = await this._collection.findOneAsync({ _id: 'control' });
 
   return control || this._setControl({ version: 0, locked: false });
 };
 
 // sets the control record
-Migrations._setControl = function(control) {
+Migrations._setControl = async function(control) {
   // be quite strict
   check(control.version, Number);
   check(control.locked, Boolean);
 
-  this._collection.update(
+  await this._collection.updateAsync(
     { _id: 'control' },
     { $set: { version: control.version, locked: control.locked } },
     { upsert: true },
@@ -303,5 +303,5 @@ Migrations._reset = function() {
 
 // unlock control
 Migrations.unlock = function() {
-  this._collection.update({ _id: 'control' }, { $set: { locked: false } });
+  this._collection.updateAsync({ _id: 'control' }, { $set: { locked: false } });
 };

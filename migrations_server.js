@@ -95,10 +95,9 @@ Meteor.startup(function() {
   Migrations._collection = new Mongo.Collection(options.collectionName);
 
   log = createLogger('Migrations');
-  const partial = (func, ...boundArgs) => (...remainingArgs) => func(...boundArgs, ...remainingArgs)
 
   ['info', 'warn', 'error', 'debug'].forEach(function(level) {
-    log[level] = partial(log, level);
+    log[level] = (message) => log(level, message)
   });
 
   if (process.env.MIGRATE) Migrations.migrateTo(process.env.MIGRATE);
@@ -124,9 +123,7 @@ Migrations.add = function(migration) {
   Object.freeze(migration);
 
   this._list.push(migration);
-  this._list = this._list.sort(function(m) {
-    return m.version;
-  });
+  this._list.sort((a, b) => (a.version > b.version) ? 1 : ((b.version > a.version) ? -1 : 0));
 };
 
 // Attempts to run the migrations using command in the form of:

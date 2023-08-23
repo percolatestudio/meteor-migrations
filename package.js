@@ -6,7 +6,7 @@ Package.describe({
 });
 
 Package.onUse(function(api) {
-  api.versionsFrom('2.8.0');
+  api.versionsFrom(['2.8.0', '3.0-alpha.11']);
   api.use('ecmascript');
   api.use(['check', 'mongo', 'logging'], 'server');
   api.mainModule('migrations_server.js', 'server');

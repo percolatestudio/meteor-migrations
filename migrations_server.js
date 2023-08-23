@@ -89,7 +89,7 @@ function createLogger(prefix) {
 
 let log;
 
-Meteor.startup(function() {
+Meteor.startup(async function() {
   const options = Migrations.options;
 
   // collection holding the control record
@@ -101,7 +101,7 @@ Meteor.startup(function() {
     log[level] = (message) => log(level, message)
   });
 
-  if (process.env.MIGRATE) Migrations.migrateTo(process.env.MIGRATE);
+  if (process.env.MIGRATE) await Migrations.migrateTo(process.env.MIGRATE);
 });
 
 // Add a new migration:
@@ -130,7 +130,7 @@ Migrations.add = function(migration) {
 // Attempts to run the migrations using command in the form of:
 // e.g 'latest', 'latest,exit', 2
 // use 'XX,rerun' to re-run the migration at that version
-Migrations.migrateTo = function(command) {
+Migrations.migrateTo = async function(command) {
   if (typeof command === 'undefined' || command === '' || this._list.length === 0)
     throw new Error('Cannot migrate using invalid command: ' + command);
 
@@ -144,9 +144,9 @@ Migrations.migrateTo = function(command) {
   }
 
   if (version === 'latest') {
-    this._migrateTo(this._list[this._list.length -1].version);
+    await this._migrateTo(this._list[this._list.length -1].version);
   } else {
-    this._migrateTo(parseInt(version), subcommand === 'rerun');
+    await this._migrateTo(parseInt(version), subcommand === 'rerun');
   }
 
   // remember to run meteor with --once otherwise it will restart
@@ -154,14 +154,14 @@ Migrations.migrateTo = function(command) {
 };
 
 // just returns the current version
-Migrations.getVersion = function() {
-  return this._getControl().version;
+Migrations.getVersion = async function() {
+  return await this._getControl().version;
 };
 
 // migrates to the specific version passed in
-Migrations._migrateTo = function(version, rerun) {
+Migrations._migrateTo = async function(version, rerun) {
   const self = this;
-  const control = this._getControl(); // Side effect: upserts control document.
+  const control = await this._getControl(); // Side effect: upserts control document.
   let currentVersion = control.version;
 
   //Avoid unneeded locking, check if migration actually is going to run
@@ -236,12 +236,12 @@ Migrations._migrateTo = function(version, rerun) {
   }
 
   // Side effect: saves version.
-  function unlock() {
-    self._setControl({ locked: false, version: currentVersion });
+  async function unlock() {
+    await self._setControl({ locked: false, version: currentVersion });
   }
 
-  function updateVersion() {
-    self._setControl({ locked: true, version: currentVersion });
+  async function updateVersion() {
+    await self._setControl({ locked: true, version: currentVersion });
   }
 
   if (currentVersion < version) {
@@ -266,7 +266,7 @@ Migrations._migrateTo = function(version, rerun) {
 Migrations._getControl = async function() {
   const control = await this._collection.findOneAsync({ _id: 'control' });
 
-  return control || this._setControl({ version: 0, locked: false });
+  return control || await this._setControl({ version: 0, locked: false });
 };
 
 // sets the control record
@@ -294,12 +294,12 @@ Migrations._findIndexByVersion = function(version) {
 };
 
 //reset (mainly intended for tests)
-Migrations._reset = function() {
+Migrations._reset = async function() {
   this._list = [{ version: 0, up: function() {} }];
-  this._collection.remove({});
+  return await this._collection.removeAsync({});
 };
 
 // unlock control
-Migrations.unlock = function() {
-  this._collection.updateAsync({ _id: 'control' }, { $set: { locked: false } });
+Migrations.unlock = async function() {
+  return await this._collection.updateAsync({ _id: 'control' }, { $set: { locked: false } });
 };

@@ -8,6 +8,7 @@ jobs:
       matrix:
         meteorRelease:
           - '--release 2.8.0'
+          - '--release 3.0-alpha.11'
           # Latest version
           - ''
     steps:

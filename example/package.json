@@ -1,0 +1,38 @@
+{
+  "name": "meteor-migrations-example",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Example for meteor-migrations.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/percolatestudio/meteor-migrations.git"
+  },
+  "author": {
+    "name": "Percolate Studio",
+    "url": "http://percolatestudio.com/"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/percolatestudio/meteor-migrations/issues"
+  },
+  "homepage": "https://atmospherejs.com/percolate/migrations",
+  "scripts": {
+    "start": "meteor run",
+    "visualize": "meteor --production --extra-packages bundle-visualizer"
+  },
+  "dependencies": {
+    "@babel/runtime": "7.22.10",
+    "jquery": "3.7.0",
+    "meteor-node-stubs": "1.2.5"
+  },
+  "keywords": [
+    "meteor",
+    "migrations"
+  ],
+  "meteor": {
+    "mainModule": {
+      "client": "client/main.js",
+      "server": "server/main.js"
+    }
+  }
+}

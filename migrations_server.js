@@ -177,7 +177,8 @@ Migrations.migrateTo = async function(command) {
  * @returns {Promise<void>}
  */
 Migrations.getVersion = async function() {
-  return await this._getControl().version;
+  const control = await this._getControl()
+  return control.version;
 };
 
 /**
@@ -293,7 +294,7 @@ Migrations._migrateTo = async function(version, rerun) {
 
 /**
  * gets the current control record, optionally creating it if non-existent
- * @returns {Promise<*>}
+ * @returns {Promise<{ version: number, locked: boolean }>}
  * @private
  */
 Migrations._getControl = async function() {

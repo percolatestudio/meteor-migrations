@@ -16,12 +16,12 @@ Tinytest.addAsync('Migrates up once and only once.', async function(test) {
   // migrates once
   await Migrations.migrateTo('latest');
   test.equal(run, ['u1']);
-  test.equal(Migrations.getVersion(), 1);
+  test.equal(await Migrations.getVersion(), 1);
 
   // shouldn't do anything
   await Migrations.migrateTo('latest');
   test.equal(run, ['u1']);
-  test.equal(Migrations.getVersion(), 1);
+  test.equal(await Migrations.getVersion(), 1);
 });
 
 Tinytest.addAsync('Migrates up once and back down.', async function(test) {
@@ -125,7 +125,7 @@ Tinytest.addAsync('Tests migrating down', async function(test) {
   test.equal(await Migrations.getVersion(), 2);
 
   // should throw as migration u2 has no down method and remain at the save ver
-  test.throws(async function() {
+  await test.throwsAsync(async function() {
     await Migrations.migrateTo('1');
   }, /Cannot migrate/);
   test.equal(run, ['u1', 'u2', 'u3', 'd3']);
@@ -204,7 +204,7 @@ Tinytest.addAsync('Checks that version is updated if subsequent migration fails'
   });
 
   // migrate up, which should throw
-  test.throws(async function() {
+  await test.throwsAsync(async function() {
     await Migrations.migrateTo('latest');
   });
   test.equal(run, ['u1']);
@@ -355,3 +355,39 @@ Tinytest.addAsync(
     Migrations.options.logger = null;
   },
 );
+
+Tinytest.addAsync('Async migrations', async function(test) {
+  await Migrations._reset();
+  let num = 10
+
+  Migrations.add({
+    version: 1,
+    up: async function() {
+      num = 20
+    },
+    down: async function () {
+      num = 10
+    }
+  });
+
+  await Migrations.migrateTo(1);
+  test.equal(num, 20)
+
+  await Migrations.migrateTo(0);
+  test.equal(num, 10)
+})
+
+// Tinytest.addAsync('Fail migration when not a function', async function(test) {
+//   await Migrations._reset();
+//
+//   Migrations.add({
+//     version: 1,
+//     name: 'Failure of a migration',
+//     up: 'this should fail'
+//   });
+//
+//   test.throwsAsync(async function() {
+//     await Migrations.migrateTo('latest');
+//   }, /Migration must supply an up function/);
+//
+// })

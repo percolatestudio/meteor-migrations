@@ -101,7 +101,14 @@ Meteor.startup(async function() {
     log[level] = (message) => log(level, message)
   });
 
-  if (process.env.MIGRATE) await Migrations.migrateTo(process.env.MIGRATE);
+  if (process.env.MIGRATE) {
+    try {
+      await Migrations.migrateTo(process.env.MIGRATE);
+    } catch (e) {
+      log.error('Failed to run migrations')
+      log.error(e.message || e.reason)
+    }
+  }
 });
 
 // Add a new migration:
@@ -172,7 +179,8 @@ Migrations._migrateTo = async function(version, rerun) {
     return;
   }
 
-  if (lock() === false) {
+  const isLock = await lock()
+  if (isLock === false) {
     log.info('Not migrating, control is locked.');
     return;
   }
@@ -181,7 +189,7 @@ Migrations._migrateTo = async function(version, rerun) {
     log.info('Rerunning version ' + version);
     migrate('up', this._findIndexByVersion(version));
     log.info('Finished migrating.');
-    unlock();
+    await unlock();
     return;
   }
 
@@ -248,17 +256,17 @@ Migrations._migrateTo = async function(version, rerun) {
     for (let i = startIdx; i < endIdx; i++) {
       migrate('up', i + 1);
       currentVersion = self._list[i + 1].version;
-      updateVersion();
+      await updateVersion();
     }
   } else {
     for (let i = startIdx; i > endIdx; i--) {
       migrate('down', i);
       currentVersion = self._list[i - 1].version;
-      updateVersion();
+      await updateVersion();
     }
   }
 
-  unlock();
+  await unlock();
   log.info('Finished migrating.');
 };
 

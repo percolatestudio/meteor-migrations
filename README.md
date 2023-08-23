@@ -205,6 +205,8 @@ Migrations.add({
 });
 ```
 
+For Meteor 2.8+ you can pass async function directly.
+
 * Note: You may want to call migration after startup in case your host (such as Heroku) limits the amount of time given for startup
 ``` javascript
 Meteor.startup(function() {
@@ -215,6 +217,6 @@ Meteor.startup(function() {
 
 ## License
 
-MIT. (c) Percolate Studio, maintained by Zoltan Olah (@zol).
+MIT. (c) Percolate Studio, Meteor Software
 
 Meteor Migrations was developed as part of the [Verso](http://versoapp.com) project.

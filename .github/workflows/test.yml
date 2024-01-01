@@ -8,12 +8,12 @@ jobs:
       matrix:
         meteorRelease:
           - '--release 2.9.1'
-          - '--release 3.0-alpha.11'
+          - '--release 3.0-beta.0'
           # Latest recommended version
           - ''
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js
         uses: actions/setup-node@v3

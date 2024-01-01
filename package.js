@@ -1,12 +1,12 @@
 Package.describe({
   summary: 'Define and run db migrations.',
-  version: '1.1.1',
+  version: '2.0.0',
   name: 'percolate:migrations',
   git: 'https://github.com/percolatestudio/meteor-migrations.git',
 });
 
 Package.onUse(function(api) {
-  api.versionsFrom('METEOR@1.9.3');
+  api.versionsFrom(['2.9.0', '3.0-beta.0']);
   api.use('ecmascript');
   api.use(['check', 'mongo', 'logging'], 'server');
   api.mainModule('migrations_server.js', 'server');

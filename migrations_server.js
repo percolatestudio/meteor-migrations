@@ -35,6 +35,10 @@ import { Log } from 'meteor/logging';
 // it.
 const DefaultMigration = { version: 0, up: function() {} };
 
+/**
+ *
+ * @type {{_list: {up: DefaultMigration.up, version: number}[], options: {logIfLatest: boolean, log: boolean, logger: null, collectionName: string}, config: Migrations.config}}
+ */
 export const Migrations = {
   _list: [DefaultMigration],
   options: {
@@ -52,15 +56,17 @@ export const Migrations = {
   },
 };
 
-/*
-  Logger factory function. Takes a prefix string and options object
-  and uses an injected `logger` if provided, else falls back to
-  Meteor's `Log` package.
-  Will send a log object to the injected logger, on the following form:
-    message: String
-    level: String (info, warn, error, debug)
-    tag: 'Migrations'
-*/
+/**
+ * Logger factory function. Takes a prefix string and options object
+ *   and uses an injected `logger` if provided, else falls back to
+ *   Meteor's `Log` package.
+ *   Will send a log object to the injected logger, on the following form:
+ *     message: String
+ *     level: String (info, warn, error, debug)
+ *     tag: 'Migrations'
+ * @param prefix
+ * @returns {(function())|*|(function(*, *): void)}
+ */
 function createLogger(prefix) {
   check(prefix, String);
 
@@ -89,7 +95,7 @@ function createLogger(prefix) {
 
 let log;
 
-Meteor.startup(function() {
+Meteor.startup(async function() {
   const options = Migrations.options;
 
   // collection holding the control record
@@ -101,15 +107,24 @@ Meteor.startup(function() {
     log[level] = (message) => log(level, message)
   });
 
-  if (process.env.MIGRATE) Migrations.migrateTo(process.env.MIGRATE);
+  if (process.env.MIGRATE) {
+    try {
+      await Migrations.migrateTo(process.env.MIGRATE);
+    } catch (e) {
+      log.error('Failed to run migrations')
+      log.error(e.message || e.reason)
+    }
+  }
 });
 
-// Add a new migration:
-// {up: function *required
-//  version: Number *required
-//  down: function *optional
-//  name: String *optional
-// }
+/**
+ * Add a new migration
+ * @param migration {Object}
+ * @param migration.version {Number} required
+ * @param migration.up {function} required migration function
+ * @param migration.name {String} Optional name for the migration step
+ * @param migration.down {function} Optional function to migrate back from this step to previous version
+ */
 Migrations.add = function(migration) {
   if (typeof migration.up !== 'function')
     throw new Meteor.Error('Migration must supply an up function.');
@@ -127,10 +142,14 @@ Migrations.add = function(migration) {
   this._list.sort((a, b) => (a.version > b.version) ? 1 : ((b.version > a.version) ? -1 : 0));
 };
 
-// Attempts to run the migrations using command in the form of:
-// e.g 'latest', 'latest,exit', 2
-// use 'XX,rerun' to re-run the migration at that version
-Migrations.migrateTo = function(command) {
+/**
+ * Attempts to run the migrations using command in the form of:
+ * e.g 'latest', 'latest,exit', 2
+ * use 'XX,rerun' to re-run the migration at that version
+ * @param command {string|number}
+ * @returns {Promise}
+ */
+Migrations.migrateTo = async function(command) {
   if (typeof command === 'undefined' || command === '' || this._list.length === 0)
     throw new Error('Cannot migrate using invalid command: ' + command);
 
@@ -144,24 +163,34 @@ Migrations.migrateTo = function(command) {
   }
 
   if (version === 'latest') {
-    this._migrateTo(this._list[this._list.length -1].version);
+    await this._migrateTo(this._list[this._list.length -1].version);
   } else {
-    this._migrateTo(parseInt(version), subcommand === 'rerun');
+    await this._migrateTo(parseInt(version), subcommand === 'rerun');
   }
 
   // remember to run meteor with --once otherwise it will restart
   if (subcommand === 'exit') process.exit(0);
 };
 
-// just returns the current version
-Migrations.getVersion = function() {
-  return this._getControl().version;
+/**
+ * Just returns the current version
+ * @returns {Promise<void>}
+ */
+Migrations.getVersion = async function() {
+  const control = await this._getControl()
+  return control.version;
 };
 
-// migrates to the specific version passed in
-Migrations._migrateTo = function(version, rerun) {
+/**
+ * migrates to the specific version passed in
+ * @param version {number}
+ * @param rerun {boolean}
+ * @returns {Promise<void>}
+ * @private
+ */
+Migrations._migrateTo = async function(version, rerun) {
   const self = this;
-  const control = this._getControl(); // Side effect: upserts control document.
+  const control = await this._getControl(); // Side effect: upserts control document.
   let currentVersion = control.version;
 
   //Avoid unneeded locking, check if migration actually is going to run
@@ -172,7 +201,8 @@ Migrations._migrateTo = function(version, rerun) {
     return;
   }
 
-  if (lock() === false) {
+  const isLock = await lock()
+  if (isLock === false) {
     log.info('Not migrating, control is locked.');
     return;
   }
@@ -181,7 +211,7 @@ Migrations._migrateTo = function(version, rerun) {
     log.info('Rerunning version ' + version);
     migrate('up', this._findIndexByVersion(version));
     log.info('Finished migrating.');
-    unlock();
+    await unlock();
     return;
   }
 
@@ -223,12 +253,12 @@ Migrations._migrateTo = function(version, rerun) {
   }
 
   // Returns true if lock was acquired.
-  function lock() {
+  async function lock() {
     // This is atomic. The selector ensures only one caller at a time will see
     // the unlocked control, and locking occurs in the same update's modifier.
     // All other simultaneous callers will get false back from the update.
     return (
-      self._collection.update(
+      await self._collection.updateAsync(
         { _id: 'control', locked: false },
         { $set: { locked: true, lockedAt: new Date() } },
       ) === 1
@@ -236,46 +266,57 @@ Migrations._migrateTo = function(version, rerun) {
   }
 
   // Side effect: saves version.
-  function unlock() {
-    self._setControl({ locked: false, version: currentVersion });
+  async function unlock() {
+    await self._setControl({ locked: false, version: currentVersion });
   }
 
-  function updateVersion() {
-    self._setControl({ locked: true, version: currentVersion });
+  async function updateVersion() {
+    await self._setControl({ locked: true, version: currentVersion });
   }
 
   if (currentVersion < version) {
     for (let i = startIdx; i < endIdx; i++) {
       migrate('up', i + 1);
       currentVersion = self._list[i + 1].version;
-      updateVersion();
+      await updateVersion();
     }
   } else {
     for (let i = startIdx; i > endIdx; i--) {
       migrate('down', i);
       currentVersion = self._list[i - 1].version;
-      updateVersion();
+      await updateVersion();
     }
   }
 
-  unlock();
+  await unlock();
   log.info('Finished migrating.');
 };
 
-// gets the current control record, optionally creating it if non-existent
-Migrations._getControl = function() {
-  const control = this._collection.findOne({ _id: 'control' });
+/**
+ * gets the current control record, optionally creating it if non-existent
+ * @returns {Promise<{ version: number, locked: boolean }>}
+ * @private
+ */
+Migrations._getControl = async function() {
+  const control = await this._collection.findOneAsync({ _id: 'control' });
 
-  return control || this._setControl({ version: 0, locked: false });
+  return control || await this._setControl({ version: 0, locked: false });
 };
 
-// sets the control record
-Migrations._setControl = function(control) {
+/**
+ * sets the control record
+ * @param control {Object}
+ * @param control.version {number}
+ * @param control.locked {boolean}
+ * @returns {Promise<*>}
+ * @private
+ */
+Migrations._setControl = async function(control) {
   // be quite strict
   check(control.version, Number);
   check(control.locked, Boolean);
 
-  this._collection.update(
+  await this._collection.updateAsync(
     { _id: 'control' },
     { $set: { version: control.version, locked: control.locked } },
     { upsert: true },
@@ -284,7 +325,12 @@ Migrations._setControl = function(control) {
   return control;
 };
 
-// returns the migration index in _list or throws if not found
+/**
+ * Returns the migration index in _list or throws if not found
+ * @param version {number}
+ * @returns {number}
+ * @private
+ */
 Migrations._findIndexByVersion = function(version) {
   for (let i = 0; i < this._list.length; i++) {
     if (this._list[i].version === version) return i;
@@ -293,13 +339,20 @@ Migrations._findIndexByVersion = function(version) {
   throw new Meteor.Error("Can't find migration version " + version);
 };
 
-//reset (mainly intended for tests)
-Migrations._reset = function() {
+/**
+ * reset (mainly intended for tests)
+ * @returns {Promise<number>}
+ * @private
+ */
+Migrations._reset = async function() {
   this._list = [{ version: 0, up: function() {} }];
-  this._collection.remove({});
+  return await this._collection.removeAsync({});
 };
 
-// unlock control
-Migrations.unlock = function() {
-  this._collection.update({ _id: 'control' }, { $set: { locked: false } });
+/**
+ * unlock control
+ * @returns {Promise<number>}
+ */
+Migrations.unlock = async function() {
+  return await this._collection.updateAsync({ _id: 'control' }, { $set: { locked: false } });
 };
